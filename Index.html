@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>صورت‌های فضایی</title>
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <button id="throwButton">شروع</button>
+    
+    <div id="info">در حال بارگذاری مدل...</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/kripken/ammo.js@HEAD/builds/ammo.js"></script>
+    <script>
+        // اطمینان از بارگذاری Ammo.js
+        window.addEventListener('load', function() {
+            if (typeof Ammo === 'undefined') {
+                console.error('Ammo.js بارگذاری نشد');
+                document.getElementById('info').textContent = 'خطا در بارگذاری موتور فیزیک';
+            } else {
+                console.log('Ammo.js آماده است');
+            }
+        });
+    </script>
+    <script src="js/main.js"></script>
+</body>
+</html>
