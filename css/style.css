@@ -21,38 +21,37 @@ canvas {
   font-size: 14px;
 }
 
-
 body {
-    margin: 0;
-    font-family: Vazirmatn, sans-serif;
+  margin: 0;
+  font-family: Vazirmatn, sans-serif;
 }
 #throwButton {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 10px 20px;
-    font-family: Vazirmatn, sans-serif;
-    font-size: 16px;
-    background-color: #ff7700;
-    color: white;
-    border: none;
-    border-radius: 150px;
-    cursor: pointer;
-    z-index: 1000;
-    transition: 3s cubic-bezier(0.075, 0.82, 0.165, 1);
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  font-family: Vazirmatn, sans-serif;
+  font-size: 16px;
+  background-color: #ff7700;
+  color: white;
+  border: none;
+  border-radius: 150px;
+  cursor: pointer;
+  z-index: 1000;
+  transition: 3s cubic-bezier(0.075, 0.82, 0.165, 1);
 }
 #throwButton:hover {
-    background-color: #0ecfff;
-    
+  background-color: #0ecfff;
 }
 #info {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: white;
-    font-size: 24px;
-    text-align: center;
-    z-index: 1000;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 24px;
+  text-align: center;
+  z-index: 1000;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
