@@ -271,9 +271,9 @@ async function init() {
         const hemisphereMaterial = new THREE.MeshPhysicalMaterial({
           color: 0xf0fdff,
           transparent: true,
-          opacity: 0.15,
-          roughness: 0.3,
-          metalness: 0.9,
+          opacity: 0.25,
+          roughness: 0.35,
+          metalness: 0.95,
           clearcoat: 0.1,
           clearcoatRoughness: 0.9,
           side: THREE.DoubleSide,
@@ -362,7 +362,7 @@ async function init() {
 
         camera.position.set(
           center.x + cameraZ,
-          center.y + cameraZ / 2,
+          center.y + cameraZ * 1.2,
           center.z + cameraZ
         );
         camera.lookAt(center);
@@ -409,8 +409,8 @@ async function init() {
 
       ballBodies.forEach((body) => {
         body.activate(true);
-        const force = 20;
-        const angle = Math.random() * Math.PI * 2;
+        const force = 100;
+        const angle = Math.random() * Math.PI * 3;
         const x = Math.cos(angle) * force;
         const z = Math.sin(angle) * force;
         const y = force * 0.5;
