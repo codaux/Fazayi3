@@ -89,6 +89,11 @@ async function init() {
     let isRotatingKaf = false;
     const lastMouse = new THREE.Vector2();
     const rotationSpeed = 0.01;
+    const kafInitialQuat = new THREE.Quaternion();
+    let isReturning = false;
+    let returnStartTime = 0;
+    let returnDuration = 0.9; // ثانیه
+    const returnStartQuat = new THREE.Quaternion();
     const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff];
 
     // تنظیمات فیزیک
@@ -176,9 +181,9 @@ async function init() {
             child.receiveShadow = true;
             child.material = new THREE.MeshPhysicalMaterial({
               color: 0xdd4400,
-              metalness: 0.1,
-              roughness: 0.9,
-              clearcoat: 0.1,
+              metalness: 0.4,
+              roughness: 0.5,
+              clearcoat: 0.3,
               clearcoatRoughness: 0.8,
               side: THREE.DoubleSide,
               transparent: true,
@@ -201,6 +206,7 @@ async function init() {
         kafObject.position.sub(center);
         scene.add(kafPivot);
         kafPivot.add(kafObject);
+        kafInitialQuat.copy(kafPivot.quaternion);
 
         // ساخت بدنه‌ی فیزیکی KAF به‌صورت مرکب حول مرکز
         const kafTriangleMesh = new Ammo.btTriangleMesh();
@@ -453,19 +459,27 @@ async function init() {
         }
       }
 
-      // همگام‌سازی وضعیت فیزیکی KAF با رندر
-      if (kafBody && kafPivot) {
-        const kafTransform = new Ammo.btTransform();
-        kafBody.getMotionState().getWorldTransform(kafTransform);
-        const origin = kafTransform.getOrigin();
-        const rotation = kafTransform.getRotation();
-        kafPivot.position.set(origin.x(), origin.y(), origin.z());
-        kafPivot.quaternion.set(
-          rotation.x(),
-          rotation.y(),
-          rotation.z(),
-          rotation.w()
-        );
+      // انیمیشن بازگشت نرم به وضعیت اولیه پس از رها کردن موس
+      if (!isRotatingKaf && isReturning && kafPivot) {
+        const now = performance.now();
+        const t = Math.min((now - returnStartTime) / (returnDuration * 1000), 1);
+        const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+        THREE.Quaternion.slerp(returnStartQuat, kafInitialQuat, kafPivot.quaternion, eased);
+
+        if (kafBody) {
+          const transform = new Ammo.btTransform();
+          transform.setIdentity();
+          transform.setOrigin(new Ammo.btVector3(kafPivot.position.x, kafPivot.position.y, kafPivot.position.z));
+          const q = kafPivot.quaternion;
+          transform.setRotation(new Ammo.btQuaternion(q.x, q.y, q.z, q.w));
+          kafBody.setWorldTransform(transform);
+          const motionState = kafBody.getMotionState();
+          if (motionState) motionState.setWorldTransform(transform);
+        }
+
+        if (t >= 1) {
+          isReturning = false;
+        }
       }
 
       controls.update();
@@ -497,11 +511,13 @@ async function init() {
       if (intersects && intersects.length > 0) {
         isRotatingKaf = true;
         lastMouse.set(event.clientX, event.clientY);
+        isReturning = false;
       }
     }
 
     function onMouseMove(event) {
       if (!isRotatingKaf || !kafPivot) return;
+      if (isReturning) isReturning = false;
       const deltaX = event.clientX - lastMouse.x;
       const deltaY = event.clientY - lastMouse.y;
       lastMouse.set(event.clientX, event.clientY);
@@ -525,6 +541,11 @@ async function init() {
 
     function onMouseUp() {
       isRotatingKaf = false;
+      if (kafPivot) {
+        returnStartQuat.copy(kafPivot.quaternion);
+        returnStartTime = performance.now();
+        isReturning = true;
+      }
     }
   } catch (error) {
     console.error("خطا در راه‌اندازی برنامه:", error);
