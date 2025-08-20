@@ -20,7 +20,7 @@ async function init() {
 
     // تنظیمات دوربین
     const camera = new THREE.PerspectiveCamera(
-      75,
+      50,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
@@ -42,7 +42,7 @@ async function init() {
     renderer.toneMappingExposure = 1.0;
     document.body.appendChild(renderer.domElement);
 
-    // تنظیمات کنترل‌ها
+    // تنظیمات کنترل‌ها - ثابت کردن دوربین
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -50,6 +50,7 @@ async function init() {
     controls.minDistance = 10;
     controls.maxDistance = 50;
     controls.maxPolarAngle = Math.PI / 2;
+    controls.enabled = false; // غیرفعال کردن کنترل‌های دوربین
 
     // تنظیمات نور
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
@@ -79,6 +80,15 @@ async function init() {
     let balls = [];
     let ballBodies = [];
     let isSceneReady = false;
+    let kafObject = null;
+    let kafPivot = null;
+    let kafBody = null;
+    let kafMeshes = [];
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let isRotatingKaf = false;
+    const lastMouse = new THREE.Vector2();
+    const rotationSpeed = 0.01;
     const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff];
 
     // تنظیمات فیزیک
@@ -174,59 +184,7 @@ async function init() {
               transparent: true,
               opacity: 1,
             });
-
-            // ایجاد شکل فیزیکی دقیق برای KAF
-            const vertices = child.geometry.attributes.position.array;
-            const indices = [];
-            for (let i = 0; i < vertices.length / 3; i++) {
-              indices.push(i);
-            }
-
-            const triangleMesh = new Ammo.btTriangleMesh();
-            for (let i = 0; i < indices.length; i += 3) {
-              const v1 = new Ammo.btVector3(
-                vertices[indices[i] * 3],
-                vertices[indices[i] * 3 + 1],
-                vertices[indices[i] * 3 + 2]
-              );
-              const v2 = new Ammo.btVector3(
-                vertices[indices[i + 1] * 3],
-                vertices[indices[i + 1] * 3 + 1],
-                vertices[indices[i + 1] * 3 + 2]
-              );
-              const v3 = new Ammo.btVector3(
-                vertices[indices[i + 2] * 3],
-                vertices[indices[i + 2] * 3 + 1],
-                vertices[indices[i + 2] * 3 + 2]
-              );
-              triangleMesh.addTriangle(v1, v2, v3, false);
-            }
-
-            const shape = new Ammo.btBvhTriangleMeshShape(
-              triangleMesh,
-              true,
-              true
-            );
-            const transform = new Ammo.btTransform();
-            transform.setIdentity();
-            transform.setOrigin(
-              new Ammo.btVector3(
-                child.position.x,
-                child.position.y,
-                child.position.z
-              )
-            );
-            const motionState = new Ammo.btDefaultMotionState(transform);
-            const rbInfo = new Ammo.btRigidBodyConstructionInfo(
-              0,
-              motionState,
-              shape,
-              new Ammo.btVector3(0, 0, 0)
-            );
-            const body = new Ammo.btRigidBody(rbInfo);
-            body.setRestitution(0.5);
-            body.setFriction(0.8);
-            physicsWorld.addRigidBody(body);
+            kafMeshes.push(child);
           }
         });
         scene.add(object);
@@ -235,6 +193,70 @@ async function init() {
         const box = new THREE.Box3().setFromObject(object);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
+
+        // ایجاد پیوت در مرکز KAF برای چرخش حول مرکز
+        kafObject = object;
+        kafPivot = new THREE.Object3D();
+        kafPivot.position.copy(center);
+        kafObject.position.sub(center);
+        scene.add(kafPivot);
+        kafPivot.add(kafObject);
+
+        // ساخت بدنه‌ی فیزیکی KAF به‌صورت مرکب حول مرکز
+        const kafTriangleMesh = new Ammo.btTriangleMesh();
+        kafMeshes.forEach((mesh) => {
+          const geom = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry;
+          const vertices = geom.attributes.position.array;
+          for (let i = 0; i < vertices.length; i += 9) {
+            const v1 = new Ammo.btVector3(
+              vertices[i],
+              vertices[i + 1],
+              vertices[i + 2]
+            );
+            const v2 = new Ammo.btVector3(
+              vertices[i + 3],
+              vertices[i + 4],
+              vertices[i + 5]
+            );
+            const v3 = new Ammo.btVector3(
+              vertices[i + 6],
+              vertices[i + 7],
+              vertices[i + 8]
+            );
+            kafTriangleMesh.addTriangle(v1, v2, v3, false);
+          }
+        });
+        const kafInnerShape = new Ammo.btBvhTriangleMeshShape(
+          kafTriangleMesh,
+          true,
+          true
+        );
+        const kafCompoundShape = new Ammo.btCompoundShape();
+        const kafLocalTransform = new Ammo.btTransform();
+        kafLocalTransform.setIdentity();
+        kafLocalTransform.setOrigin(
+          new Ammo.btVector3(-center.x, -center.y, -center.z)
+        );
+        kafCompoundShape.addChildShape(kafLocalTransform, kafInnerShape);
+        const kafStartTransform = new Ammo.btTransform();
+        kafStartTransform.setIdentity();
+        kafStartTransform.setOrigin(
+          new Ammo.btVector3(center.x, center.y, center.z)
+        );
+        const kafMotionState = new Ammo.btDefaultMotionState(kafStartTransform);
+        const kafRbInfo = new Ammo.btRigidBodyConstructionInfo(
+          0,
+          kafMotionState,
+          kafCompoundShape,
+          new Ammo.btVector3(0, 0, 0)
+        );
+        kafBody = new Ammo.btRigidBody(kafRbInfo);
+        kafBody.setRestitution(0.5);
+        kafBody.setFriction(0.8);
+        // تبدیل به جسم کینماتیک برای امکان جابه‌جایی دستی
+        kafBody.setCollisionFlags(kafBody.getCollisionFlags() | 2);
+        kafBody.setActivationState(4);
+        physicsWorld.addRigidBody(kafBody);
 
         const hemisphereRadius = Math.max(size.x, size.z) * 0.4;
         const hemisphereGeometry = new THREE.SphereGeometry(
@@ -261,10 +283,12 @@ async function init() {
           hemisphereGeometry,
           hemisphereMaterial
         );
-        hemisphere.position.set(center.x, size.y - 5, center.z);
+        hemisphere.position.set(0, size.y - 5 - center.y, 0);
         hemisphere.castShadow = false;
         hemisphere.receiveShadow = true;
-        scene.add(hemisphere);
+        kafPivot.add(hemisphere);
+        // برای انتخاب با ری‌کستر هم قابل کلیک باشد
+        kafMeshes.push(hemisphere);
 
         // اضافه کردن فیزیک برای محفظه شیشه‌ای
         const segments = 16;
@@ -287,32 +311,19 @@ async function init() {
             theta += thetaLength / segments
           ) {
             const v1 = new Ammo.btVector3(
-              hemisphereRadius * Math.sin(theta) * Math.cos(phi) + center.x,
-              hemisphereRadius * Math.cos(theta) + size.y,
-              hemisphereRadius * Math.sin(theta) * Math.sin(phi) + center.z
+              hemisphereRadius * Math.sin(theta) * Math.cos(phi),
+              hemisphereRadius * Math.cos(theta) + (size.y - 5 - center.y),
+              hemisphereRadius * Math.sin(theta) * Math.sin(phi)
             );
             const v2 = new Ammo.btVector3(
-              hemisphereRadius *
-                Math.sin(theta) *
-                Math.cos(phi + phiLength / segments) +
-                center.x,
-              hemisphereRadius * Math.cos(theta) + size.y,
-              hemisphereRadius *
-                Math.sin(theta) *
-                Math.sin(phi + phiLength / segments) +
-                center.z
+              hemisphereRadius * Math.sin(theta) * Math.cos(phi + phiLength / segments),
+              hemisphereRadius * Math.cos(theta) + (size.y - 5 - center.y),
+              hemisphereRadius * Math.sin(theta) * Math.sin(phi + phiLength / segments)
             );
             const v3 = new Ammo.btVector3(
-              hemisphereRadius *
-                Math.sin(theta + thetaLength / segments) *
-                Math.cos(phi) +
-                center.x,
-              hemisphereRadius * Math.cos(theta + thetaLength / segments) +
-                size.y,
-              hemisphereRadius *
-                Math.sin(theta + thetaLength / segments) *
-                Math.sin(phi) +
-                center.z
+              hemisphereRadius * Math.sin(theta + thetaLength / segments) * Math.cos(phi),
+              hemisphereRadius * Math.cos(theta + thetaLength / segments) + (size.y - 5 - center.y),
+              hemisphereRadius * Math.sin(theta + thetaLength / segments) * Math.sin(phi)
             );
             triangleMesh.addTriangle(v1, v2, v3, false);
           }
@@ -323,21 +334,9 @@ async function init() {
           true,
           true
         );
-        const hemisphereTransform = new Ammo.btTransform();
-        hemisphereTransform.setIdentity();
-        const hemisphereMotionState = new Ammo.btDefaultMotionState(
-          hemisphereTransform
-        );
-        const hemisphereRbInfo = new Ammo.btRigidBodyConstructionInfo(
-          0,
-          hemisphereMotionState,
-          hemisphereShape,
-          new Ammo.btVector3(0, 0, 0)
-        );
-        const hemisphereBody = new Ammo.btRigidBody(hemisphereRbInfo);
-        hemisphereBody.setRestitution(0.3);
-        hemisphereBody.setFriction(0.5);
-        physicsWorld.addRigidBody(hemisphereBody);
+        const hemisphereLocalTransform = new Ammo.btTransform();
+        hemisphereLocalTransform.setIdentity();
+        kafCompoundShape.addChildShape(hemisphereLocalTransform, hemisphereShape);
 
         // اضافه کردن توپ‌ها با اندازه کوچکتر
         const ballStartHeight = size.y + hemisphereRadius * 0.4; // ارتفاع بیشتر برای توپ‌ها
@@ -377,6 +376,12 @@ async function init() {
         // تنظیم آماده بودن صحنه
         isSceneReady = true;
         console.log("صحنه آماده است");
+
+        // رویدادهای موس برای چرخش KAF حول مرکز
+        renderer.domElement.addEventListener("mousedown", onMouseDown, false);
+        window.addEventListener("mousemove", onMouseMove, false);
+        window.addEventListener("mouseup", onMouseUp, false);
+        window.addEventListener("mouseleave", onMouseUp, false);
       },
       function (xhr) {
         const percent = ((xhr.loaded / xhr.total) * 100).toFixed(0);
@@ -448,6 +453,21 @@ async function init() {
         }
       }
 
+      // همگام‌سازی وضعیت فیزیکی KAF با رندر
+      if (kafBody && kafPivot) {
+        const kafTransform = new Ammo.btTransform();
+        kafBody.getMotionState().getWorldTransform(kafTransform);
+        const origin = kafTransform.getOrigin();
+        const rotation = kafTransform.getRotation();
+        kafPivot.position.set(origin.x(), origin.y(), origin.z());
+        kafPivot.quaternion.set(
+          rotation.x(),
+          rotation.y(),
+          rotation.z(),
+          rotation.w()
+        );
+      }
+
       controls.update();
       renderer.render(scene, camera);
     }
@@ -460,6 +480,51 @@ async function init() {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // توابع کمکی برای چرخش KAF با موس
+    function getIntersections(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      return raycaster.intersectObjects(kafMeshes, true);
+    }
+
+    function onMouseDown(event) {
+      if (!isSceneReady || !kafMeshes.length) return;
+      const intersects = getIntersections(event);
+      if (intersects && intersects.length > 0) {
+        isRotatingKaf = true;
+        lastMouse.set(event.clientX, event.clientY);
+      }
+    }
+
+    function onMouseMove(event) {
+      if (!isRotatingKaf || !kafPivot) return;
+      const deltaX = event.clientX - lastMouse.x;
+      const deltaY = event.clientY - lastMouse.y;
+      lastMouse.set(event.clientX, event.clientY);
+
+      // چرخش حول محورهای Y و X نسبت به مرکز
+      kafPivot.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), deltaX * rotationSpeed);
+      kafPivot.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), deltaY * rotationSpeed);
+
+      // اعمال وضعیت به بدنه فیزیکی (جرم 0)
+      if (kafBody) {
+        const transform = new Ammo.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new Ammo.btVector3(kafPivot.position.x, kafPivot.position.y, kafPivot.position.z));
+        const quat = kafPivot.quaternion;
+        transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+        kafBody.setWorldTransform(transform);
+        const motionState = kafBody.getMotionState();
+        if (motionState) motionState.setWorldTransform(transform);
+      }
+    }
+
+    function onMouseUp() {
+      isRotatingKaf = false;
     }
   } catch (error) {
     console.error("خطا در راه‌اندازی برنامه:", error);
