@@ -34,7 +34,8 @@ async function init() {
       alpha: true,
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    const maxPixelRatio = 2; // محدودیت برای بهبود عملکرد روی موبایل
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -383,11 +384,14 @@ async function init() {
         isSceneReady = true;
         console.log("صحنه آماده است");
 
-        // رویدادهای موس برای چرخش KAF حول مرکز
+        // رویدادهای ماوس/لمس برای چرخش KAF حول مرکز
         renderer.domElement.addEventListener("mousedown", onMouseDown, false);
         window.addEventListener("mousemove", onMouseMove, false);
         window.addEventListener("mouseup", onMouseUp, false);
         window.addEventListener("mouseleave", onMouseUp, false);
+        renderer.domElement.addEventListener("touchstart", onMouseDown, { passive: false });
+        window.addEventListener("touchmove", onMouseMove, { passive: false });
+        window.addEventListener("touchend", onMouseUp, false);
       },
       function (xhr) {
         const percent = ((xhr.loaded / xhr.total) * 100).toFixed(0);
@@ -494,33 +498,49 @@ async function init() {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
     }
 
-    // توابع کمکی برای چرخش KAF با موس
+    // توابع کمکی برای چرخش KAF با ماوس/لمس
+    function getClientXY(e) {
+      if (e && e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      if (e && e.changedTouches && e.changedTouches.length > 0) {
+        return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    }
+
     function getIntersections(event) {
       const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const { x, y } = getClientXY(event);
+      mouse.x = ((x - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((y - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
       return raycaster.intersectObjects(kafMeshes, true);
     }
 
     function onMouseDown(event) {
+      if (event && event.cancelable) event.preventDefault();
       if (!isSceneReady || !kafMeshes.length) return;
       const intersects = getIntersections(event);
       if (intersects && intersects.length > 0) {
         isRotatingKaf = true;
-        lastMouse.set(event.clientX, event.clientY);
+        const { x, y } = getClientXY(event);
+        lastMouse.set(x, y);
         isReturning = false;
       }
     }
 
     function onMouseMove(event) {
+      if (event && event.cancelable) event.preventDefault();
       if (!isRotatingKaf || !kafPivot) return;
       if (isReturning) isReturning = false;
-      const deltaX = event.clientX - lastMouse.x;
-      const deltaY = event.clientY - lastMouse.y;
-      lastMouse.set(event.clientX, event.clientY);
+      const { x, y } = getClientXY(event);
+      const deltaX = x - lastMouse.x;
+      const deltaY = y - lastMouse.y;
+      lastMouse.set(x, y);
 
       // چرخش حول محورهای Y و X نسبت به مرکز
       kafPivot.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), deltaX * rotationSpeed);
@@ -539,7 +559,8 @@ async function init() {
       }
     }
 
-    function onMouseUp() {
+    function onMouseUp(event) {
+      if (event && event.cancelable) event.preventDefault();
       isRotatingKaf = false;
       if (kafPivot) {
         returnStartQuat.copy(kafPivot.quaternion);

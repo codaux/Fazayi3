@@ -2,12 +2,15 @@ body {
   margin: 0;
   background-color: #181644;
   overflow: hidden;
-  background: radial-gradient(#086ad4 0%, #000023 100%);
+  background: radial-gradient(#5dfffc 0%, #086ad4 50%, #000023 100%);
   font-family: Vazirmatn, Tahoma, Arial, sans-serif;
 }
 
 canvas {
   display: block;
+  touch-action: none;
+  -ms-touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #info {
@@ -27,19 +30,21 @@ body {
 }
 #throwButton {
   position: fixed;
-  bottom: 20px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  padding: 10px 20px;
+  padding: 12px 24px;
   font-family: Vazirmatn, sans-serif;
   font-size: 16px;
-  background-color: #ff7700;
+  background-color: #d50f7f;
   color: white;
   border: none;
-  border-radius: 150px;
+  border-radius: 2rem;
   cursor: pointer;
   z-index: 1000;
   transition: 3s cubic-bezier(0.075, 0.82, 0.165, 1);
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
 }
 #throwButton:hover {
   background-color: #0ecfff;
@@ -54,4 +59,21 @@ body {
   text-align: center;
   z-index: 1000;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+@media (max-width: 768px) {
+  #throwButton {
+    width: 80%;
+    font-size: 18px;
+  }
+  #info {
+    font-size: 18px;
+    top: calc(12px + env(safe-area-inset-top));
+  }
+}
+
+/* جلوگیری از انتخاب تصادفی متن و رفتارهای پیش‌فرض در موبایل */
+body, #throwButton, #info, canvas {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
