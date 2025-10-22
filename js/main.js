@@ -282,15 +282,21 @@ async function init() {
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
-        // نگاشت طبیعی: چپ/راست (gamma) -> X ، جلو/عقب (beta) -> Z
-        const gravityX = Math.sin(gammaRad) * gravityStrength; // راست مثبت
-        const gravityY = -gravityStrength; // همیشه پایین
-        const gravityZ = -Math.sin(betaRad) * gravityStrength; // جلو مثبت به سمت -Z صحنه
-        
+        // ترکیب با زاویه دید دوربین: «پایین» را از دید دوربین بساز و با beta/gamma بچرخان
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+        const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+        const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
+        const down = camUp.clone().negate()
+          .applyAxisAngle(right, betaRad)    // جلو/عقب حول راست دوربین
+          .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
+          .normalize();
+
+        const gVec = down.multiplyScalar(gravityStrength);
+
         // اعمال گرانش
         if (physicsWorld) {
-          physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
-          updateGravityArrow(gravityX, gravityY, gravityZ);
+          physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+          updateGravityArrow(gVec.x, gVec.y, gVec.z);
         }
       };
       
@@ -321,20 +327,21 @@ async function init() {
       const betaRad = (beta * Math.PI) / 180;
       const gammaRad = (gamma * Math.PI) / 180;
 
-      // محاسبه گرانش ساده و منطقی
+      // محاسبه گرانش نسبی به دوربین (حفظ اندازه ثابت)
       const gravityStrength = 30;
-      
-      // گرانش بر اساس چرخش گوشی (نگاشت طبیعی)
-      // Gamma: چپ-راست -> X ، Beta: جلو-عقب -> Z
-      const gravityX = Math.sin(gammaRad) * gravityStrength; // راست مثبت -> +X
-      const gravityY = -gravityStrength; // همیشه پایین
-      const gravityZ = -Math.sin(betaRad) * gravityStrength; // جلو مثبت -> -Z صحنه
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
+      const down = camUp.clone().negate()
+        .applyAxisAngle(right, betaRad)     // جلو/عقب حول راست دوربین
+        .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
+        .normalize();
 
-      // اعمال گرانش جدید به فیزیک
-      physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
-      
-      // به‌روزرسانی محور گرانش
-      updateGravityArrow(gravityX, gravityY, gravityZ);
+      const gVec = down.multiplyScalar(gravityStrength);
+
+      // اعمال گرانش جدید به فیزیک و به‌روزرسانی محور
+      physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+      updateGravityArrow(gVec.x, gVec.y, gVec.z);
     }
 
     // تابع پردازش داده‌های DeviceMotion (fallback - تغییر گرانش)
