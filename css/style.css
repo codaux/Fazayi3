@@ -8,9 +8,10 @@ body {
 
 canvas {
   display: block;
-  touch-action: none;
-  -ms-touch-action: none;
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto;
 }
 
 #info {
@@ -41,10 +42,14 @@ body {
   border: none;
   border-radius: 2rem;
   cursor: pointer;
-  z-index: 1000;
+  z-index: 1001;
   transition: 3s cubic-bezier(0.075, 0.82, 0.165, 1);
   min-height: 44px;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 #throwButton:hover {
   background-color: #0ecfff;
