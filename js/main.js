@@ -315,9 +315,13 @@ async function init() {
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
-        const gravityX = Math.sin(gammaRad) * gravityStrength * 0.5;
-        const gravityY = -Math.cos(betaRad) * gravityStrength;
-        const gravityZ = Math.sin(betaRad) * gravityStrength * 0.3;
+        const sensitivity = 0.8;
+        const betaSensitivity = betaRad * sensitivity;
+        const gammaSensitivity = gammaRad * sensitivity;
+        
+        const gravityX = Math.sin(betaSensitivity) * gravityStrength; // جلو-عقب
+        const gravityY = -gravityStrength; // همیشه پایین
+        const gravityZ = Math.sin(gammaSensitivity) * gravityStrength; // چپ-راست
         
         // اعمال گرانش
         if (physicsWorld) {
@@ -379,10 +383,19 @@ async function init() {
       // گرانش باید در جهت عکس حرکت ژیروسکوپ باشد تا طبیعی به نظر برسد
       const gravityStrength = 30; // قدرت گرانش
       
-      // محاسبه مولفه‌های گرانش با تنظیمات بهتر
-      const gravityX = Math.sin(gammaRad) * gravityStrength * 0.5; // کاهش حساسیت X
-      const gravityY = -Math.cos(betaRad) * gravityStrength; // گرانش اصلی در Y
-      const gravityZ = Math.sin(betaRad) * gravityStrength * 0.3; // کاهش حساسیت Z
+      // محاسبه گرانش واقعی‌تر بر اساس ژیروسکوپ
+      // Beta: جلو-عقب گوشی (X axis)
+      // Gamma: چپ-راست گوشی (Z axis)
+      // Alpha: چرخش حول محور عمودی (Y axis)
+      
+      // تنظیم حساسیت برای حرکت طبیعی‌تر
+      const sensitivity = 0.8; // کاهش حساسیت
+      const betaSensitivity = betaRad * sensitivity;
+      const gammaSensitivity = gammaRad * sensitivity;
+      
+      const gravityX = Math.sin(betaSensitivity) * gravityStrength; // جلو-عقب
+      const gravityY = -gravityStrength; // همیشه پایین
+      const gravityZ = Math.sin(gammaSensitivity) * gravityStrength; // چپ-راست
 
       // نمایش اعداد گرانش روی صفحه
       const gravityXElement = document.getElementById('gravityX');
@@ -435,8 +448,10 @@ async function init() {
       // گرانش اولیه بر اساس نوع دستگاه
       if (isMobile) {
         physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0)); // گرانش پایین برای موبایل
+        console.log('گرانش اولیه موبایل تنظیم شد: (0, -30, 0)');
       } else {
         physicsWorld.setGravity(new Ammo.btVector3(0, 0, 0)); // گرانش صفر برای دسکتاپ
+        console.log('گرانش اولیه دسکتاپ تنظیم شد: (0, 0, 0)');
       }
       transformAux1 = new Ammo.btTransform();
     }
@@ -850,8 +865,12 @@ async function init() {
         hideDebugButton.addEventListener('click', () => {
           const statusDiv = document.getElementById('fullStatus');
           if (statusDiv) {
-            statusDiv.style.display = statusDiv.style.display === 'none' ? 'block' : 'none';
-            hideDebugButton.textContent = statusDiv.style.display === 'none' ? 'نمایش Debug' : 'مخفی کردن Debug';
+            const isHidden = statusDiv.style.display === 'none';
+            statusDiv.style.display = isHidden ? 'block' : 'none';
+            hideDebugButton.textContent = isHidden ? 'مخفی کردن Debug' : 'نمایش Debug';
+            console.log('Debug visibility toggled:', !isHidden);
+          } else {
+            console.log('statusDiv not found!');
           }
         });
         
@@ -1146,9 +1165,41 @@ async function init() {
         }
       });
       
+      // اضافه کردن دکمه تنظیم حساسیت
+      const sensitivityButton = document.createElement('button');
+      sensitivityButton.textContent = 'حساسیت';
+      sensitivityButton.style.cssText = `
+        position: fixed;
+        top: 210px;
+        right: 10px;
+        z-index: 1002;
+        padding: 10px 15px;
+        background: #ff5722;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: 'Vazirmatn', sans-serif;
+        font-size: 12px;
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        min-height: 44px;
+      `;
+      
+      let currentSensitivity = 0.8;
+      sensitivityButton.addEventListener('click', () => {
+        currentSensitivity = currentSensitivity === 0.8 ? 1.2 : 0.8;
+        sensitivityButton.textContent = `حساسیت: ${currentSensitivity}`;
+        console.log('حساسیت تغییر کرد به:', currentSensitivity);
+      });
+      
       document.body.appendChild(gyroButton);
       document.body.appendChild(testGravityButton);
       document.body.appendChild(httpTestButton);
+      document.body.appendChild(sensitivityButton);
       console.log('دکمه‌های ژیروسکوپ در موبایل اضافه شد');
     }
 
