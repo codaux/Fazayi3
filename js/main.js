@@ -45,14 +45,7 @@ async function init() {
       gravityArrow.position.set(0, 0, 0);
       scene.add(gravityArrow);
       
-      // به‌روزرسانی وضعیت محور
-      const arrowStatusElement = document.getElementById('arrowStatus');
-      if (arrowStatusElement) {
-        arrowStatusElement.textContent = 'ایجاد شد';
-        arrowStatusElement.style.color = '#4CAF50';
-      }
-      
-      console.log('محور گرانش ایجاد شد');
+      // محور گرانش ایجاد شد
     }
 
     // تابع به‌روزرسانی محور گرانش
@@ -260,28 +253,15 @@ async function init() {
     // تابع فعال‌سازی خودکار ژیروسکوپ در موبایل
     async function autoEnableGyroscope() {
       if (isMobile && checkGyroSupport()) {
-        console.log('فعال‌سازی خودکار ژیروسکوپ در موبایل...');
-        console.log('isMobile:', isMobile);
-        console.log('checkGyroSupport():', checkGyroSupport());
-        
         const success = await enableGyroscope();
-        console.log('نتیجه فعال‌سازی ژیروسکوپ:', success);
         if (success) {
-          console.log('ژیروسکوپ به صورت خودکار فعال شد');
           gyroEnabled = true;
-        } else {
-          console.log('ژیروسکوپ فعال نشد');
         }
-      } else {
-        console.log('شرایط فعال‌سازی ژیروسکوپ برقرار نیست');
-        console.log('isMobile:', isMobile);
-        console.log('checkGyroSupport():', checkGyroSupport());
       }
     }
 
     // تابع شبیه‌سازی ژیروسکوپ برای HTTP
     function simulateGyroscope() {
-      console.log('شبیه‌سازی ژیروسکوپ شروع شد');
       gyroEnabled = true;
       
       // شبیه‌سازی داده‌های ژیروسکوپ
@@ -315,8 +295,6 @@ async function init() {
       
       // اجرای شبیه‌سازی هر 100 میلی‌ثانیه
       setInterval(simulateData, 100);
-      
-      console.log('شبیه‌سازی ژیروسکوپ فعال شد');
     }
 
     // تابع غیرفعال‌سازی ژیروسکوپ
@@ -324,7 +302,6 @@ async function init() {
       gyroEnabled = false;
       window.removeEventListener('deviceorientation', handleGyroData, false);
       window.removeEventListener('devicemotion', handleMotionData, false);
-      console.log('ژیروسکوپ غیرفعال شد');
     }
 
     // تابع پردازش داده‌های ژیروسکوپ (تغییر گرانش)
@@ -394,10 +371,8 @@ async function init() {
       // گرانش اولیه بر اساس نوع دستگاه
       if (isMobile) {
         physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0)); // گرانش پایین برای موبایل
-        console.log('گرانش اولیه موبایل تنظیم شد: (0, -30, 0)');
       } else {
         physicsWorld.setGravity(new Ammo.btVector3(0, 0, 0)); // گرانش صفر برای دسکتاپ
-        console.log('گرانش اولیه دسکتاپ تنظیم شد: (0, 0, 0)');
       }
       transformAux1 = new Ammo.btTransform();
     }
@@ -684,7 +659,6 @@ async function init() {
 
         // بررسی پشتیبانی از ژیروسکوپ و فعال‌سازی خودکار در موبایل
         if (checkGyroSupport()) {
-          console.log('ژیروسکوپ پشتیبانی می‌شود');
           if (isMobile) {
             showGyroInstructions();
             // فعال‌سازی خودکار ژیروسکوپ در موبایل
@@ -694,40 +668,22 @@ async function init() {
             
             // تست جایگزین برای فعال‌سازی ژیروسکوپ
             setTimeout(() => {
-              console.log('تست جایگزین فعال‌سازی ژیروسکوپ...');
               if (typeof DeviceOrientationEvent !== 'undefined') {
-                console.log('سعی در فعال‌سازی مستقیم ژیروسکوپ...');
                 gyroEnabled = true;
                 window.addEventListener('deviceorientation', handleGyroData, false);
-                console.log('ژیروسکوپ به صورت مستقیم فعال شد');
               }
             }, 5000);
             
             // شبیه‌سازی ژیروسکوپ برای HTTP
             if (location.protocol === 'http:') {
-              console.log('شبیه‌سازی ژیروسکوپ برای HTTP...');
               setTimeout(() => {
                 simulateGyroscope();
               }, 3000);
             }
           }
-        } else {
-          console.log('ژیروسکوپ پشتیبانی نمی‌شود');
         }
 
-        // اضافه کردن debug برای موبایل
-        console.log('User Agent:', navigator.userAgent);
-        console.log('Protocol:', location.protocol);
-        console.log('Hostname:', location.hostname);
-        console.log('Touch support:', 'ontouchstart' in window);
-        console.log('Device Orientation support:', typeof DeviceOrientationEvent !== 'undefined');
-        console.log('Device Motion support:', typeof DeviceMotionEvent !== 'undefined');
-        console.log('isMobile:', isMobile);
-        console.log('gyroEnabled:', gyroEnabled);
-        
-        // حذف کامل بخش debug
-        
-        // حذف تست‌های اضافی
+        // حذف کامل debug
 
         // رویدادهای ماوس/لمس برای چرخش KAF حول مرکز
         renderer.domElement.addEventListener("mousedown", onMouseDown, false);
@@ -824,7 +780,6 @@ async function init() {
     function addGyroButton() {
       // فقط در موبایل دکمه نمایش داده شود
       if (!isMobile) {
-        console.log('دکمه ژیروسکوپ در دسکتاپ نمایش داده نمی‌شود');
         return;
       }
 
@@ -855,7 +810,6 @@ async function init() {
       const handleGyroButtonClick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        console.log("دکمه ژیروسکوپ کلیک شد");
         
         if (!gyroEnabled) {
           const success = await enableGyroscope();
@@ -874,7 +828,6 @@ async function init() {
       gyroButton.addEventListener('touchstart', handleGyroButtonClick, { passive: false });
       
       document.body.appendChild(gyroButton);
-      console.log('دکمه ژیروسکوپ در موبایل اضافه شد');
     }
 
     // حذف کنترل حساسیت - حساسیت ثابت و بالا
