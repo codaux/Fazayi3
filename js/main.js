@@ -285,58 +285,32 @@ async function init() {
       gyroEnabled = true;
       
       // شبیه‌سازی داده‌های ژیروسکوپ
-      let alpha = 0;
       let beta = 0;
       let gamma = 0;
       
       const simulateData = () => {
         // شبیه‌سازی تغییرات کوچک
-        alpha += (Math.random() - 0.5) * 2;
         beta += (Math.random() - 0.5) * 2;
         gamma += (Math.random() - 0.5) * 2;
         
         // محدود کردن مقادیر
-        alpha = Math.max(0, Math.min(360, alpha));
         beta = Math.max(-180, Math.min(180, beta));
         gamma = Math.max(-90, Math.min(90, gamma));
         
-        // نمایش داده‌ها
-        const alphaElement = document.getElementById('alphaValue');
-        const betaElement = document.getElementById('betaValue');
-        const gammaElement = document.getElementById('gammaValue');
-        
-        if (alphaElement) alphaElement.textContent = alpha.toFixed(1);
-        if (betaElement) betaElement.textContent = beta.toFixed(1);
-        if (gammaElement) gammaElement.textContent = gamma.toFixed(1);
-        
         // محاسبه گرانش
-        const alphaRad = (alpha * Math.PI) / 180;
         const betaRad = (beta * Math.PI) / 180;
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
-        const sensitivity = 0.8;
-        const betaSensitivity = betaRad * sensitivity;
-        const gammaSensitivity = gammaRad * sensitivity;
-        
-        const gravityX = Math.sin(betaSensitivity) * gravityStrength; // جلو-عقب
-        const gravityY = -gravityStrength; // همیشه پایین
-        const gravityZ = Math.sin(gammaSensitivity) * gravityStrength; // چپ-راست
+        const gravityX = Math.sin(betaRad) * gravityStrength;
+        const gravityY = -gravityStrength;
+        const gravityZ = Math.sin(gammaRad) * gravityStrength;
         
         // اعمال گرانش
         if (physicsWorld) {
           physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
           updateGravityArrow(gravityX, gravityY, gravityZ);
         }
-        
-        // نمایش اعداد گرانش
-        const gravityXElement = document.getElementById('gravityX');
-        const gravityYElement = document.getElementById('gravityY');
-        const gravityZElement = document.getElementById('gravityZ');
-        
-        if (gravityXElement) gravityXElement.textContent = gravityX.toFixed(1);
-        if (gravityYElement) gravityYElement.textContent = gravityY.toFixed(1);
-        if (gravityZElement) gravityZElement.textContent = gravityZ.toFixed(1);
       };
       
       // اجرای شبیه‌سازی هر 100 میلی‌ثانیه
@@ -362,49 +336,22 @@ async function init() {
       const beta = event.beta;   // چرخش حول محور X (-180 تا 180)
       const gamma = event.gamma; // چرخش حول محور Y (-90 تا 90)
 
-      // نمایش اعداد ژیروسکوپ روی صفحه
-      const alphaElement = document.getElementById('alphaValue');
-      const betaElement = document.getElementById('betaValue');
-      const gammaElement = document.getElementById('gammaValue');
-      
-      if (alphaElement) alphaElement.textContent = alpha ? alpha.toFixed(1) : 'null';
-      if (betaElement) betaElement.textContent = beta ? beta.toFixed(1) : 'null';
-      if (gammaElement) gammaElement.textContent = gamma ? gamma.toFixed(1) : 'null';
-
       // بررسی وجود داده‌ها
       if (alpha === null || beta === null || gamma === null) return;
 
       // تبدیل درجه به رادیان
-      const alphaRad = (alpha * Math.PI) / 180;
       const betaRad = (beta * Math.PI) / 180;
       const gammaRad = (gamma * Math.PI) / 180;
 
-      // محاسبه جهت گرانش بر اساس ژیروسکوپ
-      // گرانش باید در جهت عکس حرکت ژیروسکوپ باشد تا طبیعی به نظر برسد
-      const gravityStrength = 30; // قدرت گرانش
+      // محاسبه گرانش ساده و منطقی
+      const gravityStrength = 30;
       
-      // محاسبه گرانش واقعی‌تر بر اساس ژیروسکوپ
-      // Beta: جلو-عقب گوشی (X axis)
-      // Gamma: چپ-راست گوشی (Z axis)
-      // Alpha: چرخش حول محور عمودی (Y axis)
-      
-      // تنظیم حساسیت برای حرکت طبیعی‌تر
-      const sensitivity = 0.8; // کاهش حساسیت
-      const betaSensitivity = betaRad * sensitivity;
-      const gammaSensitivity = gammaRad * sensitivity;
-      
-      const gravityX = Math.sin(betaSensitivity) * gravityStrength; // جلو-عقب
+      // گرانش بر اساس چرخش گوشی
+      // Beta: جلو-عقب (X axis)
+      // Gamma: چپ-راست (Z axis)
+      const gravityX = Math.sin(betaRad) * gravityStrength;
       const gravityY = -gravityStrength; // همیشه پایین
-      const gravityZ = Math.sin(gammaSensitivity) * gravityStrength; // چپ-راست
-
-      // نمایش اعداد گرانش روی صفحه
-      const gravityXElement = document.getElementById('gravityX');
-      const gravityYElement = document.getElementById('gravityY');
-      const gravityZElement = document.getElementById('gravityZ');
-      
-      if (gravityXElement) gravityXElement.textContent = gravityX.toFixed(1);
-      if (gravityYElement) gravityYElement.textContent = gravityY.toFixed(1);
-      if (gravityZElement) gravityZElement.textContent = gravityZ.toFixed(1);
+      const gravityZ = Math.sin(gammaRad) * gravityStrength;
 
       // اعمال گرانش جدید به فیزیک
       physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
@@ -421,16 +368,15 @@ async function init() {
       const rotationRate = event.rotationRate;
       if (!rotationRate) return;
 
-      // محاسبه گرانش بر اساس rotationRate
+      // محاسبه گرانش ساده
       const gravityStrength = 30;
-      const gravityX = rotationRate.gamma ? rotationRate.gamma * 0.5 : 0;
-      const gravityY = -gravityStrength; // گرانش پایین همیشه فعال
-      const gravityZ = rotationRate.beta ? rotationRate.beta * 0.5 : 0;
+      const gravityX = rotationRate.beta ? rotationRate.beta * 2 : 0;
+      const gravityY = -gravityStrength;
+      const gravityZ = rotationRate.gamma ? rotationRate.gamma * 2 : 0;
 
       // اعمال گرانش جدید به فیزیک
       physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
-      
-      console.log(`گرانش (Motion) تغییر کرد: X=${gravityX.toFixed(2)}, Y=${gravityY.toFixed(2)}, Z=${gravityZ.toFixed(2)}`);
+      updateGravityArrow(gravityX, gravityY, gravityZ);
     }
 
     // تنظیمات فیزیک
@@ -779,135 +725,9 @@ async function init() {
         console.log('isMobile:', isMobile);
         console.log('gyroEnabled:', gyroEnabled);
         
-        // نمایش وضعیت کامل روی صفحه (همیشه)
-        const statusDiv = document.createElement('div');
-        statusDiv.id = 'fullStatus';
-        statusDiv.style.cssText = `
-          position: fixed;
-          top: 10px;
-          left: 10px;
-          z-index: 1002;
-          padding: 15px;
-          background: rgba(0,0,0,0.9);
-          color: white;
-          border-radius: 8px;
-          font-family: 'Vazirmatn', sans-serif;
-          font-size: 12px;
-          max-width: 300px;
-          max-height: 80vh;
-          overflow-y: auto;
-        `;
+        // حذف کامل بخش debug
         
-        // بررسی HTTP و نمایش هشدار
-        const isHttp = location.protocol === 'http:';
-        const httpWarning = isHttp ? '<div style="color: #ff6b6b; font-weight: bold;">⚠️ HTTP: ژیروسکوپ کار نمی‌کند!</div>' : '';
-        
-        statusDiv.innerHTML = `
-          <div style="font-weight: bold; margin-bottom: 10px;">🔍 وضعیت سیستم</div>
-          ${httpWarning}
-          <div>موبایل: <span id="mobileStatus">${isMobile ? 'بله' : 'خیر'}</span></div>
-          <div>پشتیبانی ژیروسکوپ: <span id="gyroSupportStatus">${checkGyroSupport() ? 'بله' : 'خیر'}</span></div>
-          <div>ژیروسکوپ فعال: <span id="gyroEnabledStatus">${gyroEnabled ? 'بله' : 'خیر'}</span></div>
-          <div>User Agent: <span id="userAgentStatus">${navigator.userAgent.substring(0, 50)}...</span></div>
-          <div>Protocol: <span id="protocolStatus" style="color: ${isHttp ? '#ff6b6b' : '#4CAF50'}">${location.protocol}</span></div>
-          <div>Touch Support: <span id="touchStatus">${'ontouchstart' in window ? 'بله' : 'خیر'}</span></div>
-          <div style="margin-top: 10px; font-weight: bold;">📱 داده‌های ژیروسکوپ:</div>
-          <div>Alpha: <span id="alphaValue">-</span></div>
-          <div>Beta: <span id="betaValue">-</span></div>
-          <div>Gamma: <span id="gammaValue">-</span></div>
-          <div style="margin-top: 10px; font-weight: bold;">🌍 گرانش:</div>
-          <div>X: <span id="gravityX">0</span></div>
-          <div>Y: <span id="gravityY">0</span></div>
-          <div>Z: <span id="gravityZ">0</span></div>
-          <div style="margin-top: 10px; font-weight: bold;">🔧 تست‌ها:</div>
-          <div>محور گرانش: <span id="arrowStatus">نامشخص</span></div>
-        `;
-        document.body.appendChild(statusDiv);
-        
-        // به‌روزرسانی وضعیت
-        setInterval(() => {
-          const elements = {
-            mobileStatus: isMobile ? 'بله' : 'خیر',
-            gyroSupportStatus: checkGyroSupport() ? 'بله' : 'خیر',
-            gyroEnabledStatus: gyroEnabled ? 'بله' : 'خیر'
-          };
-          
-          Object.keys(elements).forEach(key => {
-            const element = document.getElementById(key);
-            if (element) {
-              element.textContent = elements[key];
-              if (key === 'gyroEnabledStatus') {
-                element.style.color = gyroEnabled ? '#4CAF50' : '#f44336';
-              }
-            }
-          });
-        }, 1000);
-
-        // اضافه کردن دکمه مخفی کردن debug
-        const hideDebugButton = document.createElement('button');
-        hideDebugButton.textContent = 'مخفی کردن Debug';
-        hideDebugButton.style.cssText = `
-          position: fixed;
-          top: 10px;
-          right: 10px;
-          z-index: 1003;
-          padding: 8px 12px;
-          background: #333;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          font-family: 'Vazirmatn', sans-serif;
-          font-size: 11px;
-          touch-action: manipulation;
-        `;
-        
-        hideDebugButton.addEventListener('click', () => {
-          const statusDiv = document.getElementById('fullStatus');
-          if (statusDiv) {
-            const isHidden = statusDiv.style.display === 'none';
-            statusDiv.style.display = isHidden ? 'block' : 'none';
-            hideDebugButton.textContent = isHidden ? 'مخفی کردن Debug' : 'نمایش Debug';
-            console.log('Debug visibility toggled:', !isHidden);
-          } else {
-            console.log('statusDiv not found!');
-          }
-        });
-        
-        document.body.appendChild(hideDebugButton);
-        
-        // تست اولیه ژیروسکوپ
-        if (typeof DeviceOrientationEvent !== 'undefined') {
-          console.log('DeviceOrientationEvent در دسترس است');
-          // تست ساده برای بررسی عملکرد
-          const testHandler = (event) => {
-            console.log('تست ژیروسکوپ موفق:', event.alpha, event.beta, event.gamma);
-            window.removeEventListener('deviceorientation', testHandler);
-          };
-          window.addEventListener('deviceorientation', testHandler, false);
-          
-          // حذف تست بعد از 3 ثانیه
-          setTimeout(() => {
-            window.removeEventListener('deviceorientation', testHandler);
-          }, 3000);
-        }
-
-        // تست دستی ژیروسکوپ برای موبایل
-        if (isMobile) {
-          console.log('شروع تست دستی ژیروسکوپ...');
-          setTimeout(() => {
-            console.log('تست فعال‌سازی دستی ژیروسکوپ...');
-            const testHandler = (event) => {
-              console.log('تست دستی ژیروسکوپ:', event.alpha, event.beta, event.gamma);
-            };
-            window.addEventListener('deviceorientation', testHandler, false);
-            
-            // حذف تست بعد از 5 ثانیه
-            setTimeout(() => {
-              window.removeEventListener('deviceorientation', testHandler);
-            }, 5000);
-          }, 3000);
-        }
+        // حذف تست‌های اضافی
 
         // رویدادهای ماوس/لمس برای چرخش KAF حول مرکز
         renderer.domElement.addEventListener("mousedown", onMouseDown, false);
@@ -1053,154 +873,8 @@ async function init() {
       gyroButton.addEventListener('click', handleGyroButtonClick);
       gyroButton.addEventListener('touchstart', handleGyroButtonClick, { passive: false });
       
-      // اضافه کردن دکمه تست گرانش
-      const testGravityButton = document.createElement('button');
-      testGravityButton.textContent = 'تست گرانش';
-      testGravityButton.style.cssText = `
-        position: fixed;
-        top: 110px;
-        right: 10px;
-        z-index: 1002;
-        padding: 10px 15px;
-        background: #ff9800;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-family: 'Vazirmatn', sans-serif;
-        font-size: 12px;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 44px;
-      `;
-      
-      testGravityButton.addEventListener('click', () => {
-        console.log('تست گرانش کلیک شد');
-        if (physicsWorld) {
-          // تست گرانش در جهت‌های مختلف
-          const testGravity = (x, y, z, label) => {
-            physicsWorld.setGravity(new Ammo.btVector3(x, y, z));
-            updateGravityArrow(x, y, z);
-            
-            // نمایش اعداد گرانش
-            const gravityXElement = document.getElementById('gravityX');
-            const gravityYElement = document.getElementById('gravityY');
-            const gravityZElement = document.getElementById('gravityZ');
-            
-            if (gravityXElement) gravityXElement.textContent = x.toFixed(1);
-            if (gravityYElement) gravityYElement.textContent = y.toFixed(1);
-            if (gravityZElement) gravityZElement.textContent = z.toFixed(1);
-            
-            console.log(`گرانش تست ${label}: X=${x}, Y=${y}, Z=${z}`);
-          };
-
-          // تست فوری برای بررسی عملکرد
-          testGravity(0, -30, 0, 'پایین');
-          
-          setTimeout(() => {
-            testGravity(30, 0, 0, 'راست');
-          }, 1000);
-          
-          setTimeout(() => {
-            testGravity(-30, 0, 0, 'چپ');
-          }, 2000);
-          
-          setTimeout(() => {
-            testGravity(0, 0, 30, 'جلو');
-          }, 3000);
-          
-          setTimeout(() => {
-            testGravity(0, -30, 0, 'حالت عادی');
-          }, 4000);
-        } else {
-          console.log('physicsWorld موجود نیست!');
-          alert('سیستم فیزیک آماده نیست!');
-        }
-      });
-      
-      // اضافه کردن دکمه تست HTTP
-      const httpTestButton = document.createElement('button');
-      httpTestButton.textContent = 'تست HTTP';
-      httpTestButton.style.cssText = `
-        position: fixed;
-        top: 160px;
-        right: 10px;
-        z-index: 1002;
-        padding: 10px 15px;
-        background: #9c27b0;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-family: 'Vazirmatn', sans-serif;
-        font-size: 12px;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 44px;
-      `;
-      
-      httpTestButton.addEventListener('click', () => {
-        console.log('تست HTTP کلیک شد');
-        alert(`Protocol: ${location.protocol}\nHTTPS مورد نیاز برای ژیروسکوپ!`);
-        
-        // تست دستی گرانش
-        if (physicsWorld) {
-          physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0));
-          updateGravityArrow(0, -30, 0);
-          
-          // نمایش اعداد
-          const gravityXElement = document.getElementById('gravityX');
-          const gravityYElement = document.getElementById('gravityY');
-          const gravityZElement = document.getElementById('gravityZ');
-          
-          if (gravityXElement) gravityXElement.textContent = '0.0';
-          if (gravityYElement) gravityYElement.textContent = '-30.0';
-          if (gravityZElement) gravityZElement.textContent = '0.0';
-        }
-      });
-      
-      // اضافه کردن دکمه تنظیم حساسیت
-      const sensitivityButton = document.createElement('button');
-      sensitivityButton.textContent = 'حساسیت';
-      sensitivityButton.style.cssText = `
-        position: fixed;
-        top: 210px;
-        right: 10px;
-        z-index: 1002;
-        padding: 10px 15px;
-        background: #ff5722;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-family: 'Vazirmatn', sans-serif;
-        font-size: 12px;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 44px;
-      `;
-      
-      let currentSensitivity = 0.8;
-      sensitivityButton.addEventListener('click', () => {
-        currentSensitivity = currentSensitivity === 0.8 ? 1.2 : 0.8;
-        sensitivityButton.textContent = `حساسیت: ${currentSensitivity}`;
-        console.log('حساسیت تغییر کرد به:', currentSensitivity);
-      });
-      
       document.body.appendChild(gyroButton);
-      document.body.appendChild(testGravityButton);
-      document.body.appendChild(httpTestButton);
-      document.body.appendChild(sensitivityButton);
-      console.log('دکمه‌های ژیروسکوپ در موبایل اضافه شد');
+      console.log('دکمه ژیروسکوپ در موبایل اضافه شد');
     }
 
     // حذف کنترل حساسیت - حساسیت ثابت و بالا
