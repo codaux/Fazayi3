@@ -282,7 +282,7 @@ async function init() {
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
-        const gravityX = -Math.sin(betaRad) * gravityStrength; // معکوس
+        const gravityX = Math.sin(betaRad) * gravityStrength; // درست
         const gravityY = -gravityStrength;
         const gravityZ = -Math.sin(gammaRad) * gravityStrength; // معکوس
         
@@ -326,7 +326,7 @@ async function init() {
       // گرانش بر اساس چرخش گوشی (جهت درست)
       // Beta: جلو-عقب (X axis)
       // Gamma: چپ-راست (Z axis)
-      const gravityX = -Math.sin(betaRad) * gravityStrength; // معکوس
+      const gravityX = Math.sin(betaRad) * gravityStrength; // درست
       const gravityY = -gravityStrength; // همیشه پایین
       const gravityZ = -Math.sin(gammaRad) * gravityStrength; // معکوس
 
