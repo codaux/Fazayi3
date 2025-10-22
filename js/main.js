@@ -282,9 +282,9 @@ async function init() {
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
-        const gravityX = Math.sin(betaRad) * gravityStrength;
+        const gravityX = -Math.sin(betaRad) * gravityStrength; // معکوس
         const gravityY = -gravityStrength;
-        const gravityZ = Math.sin(gammaRad) * gravityStrength;
+        const gravityZ = -Math.sin(gammaRad) * gravityStrength; // معکوس
         
         // اعمال گرانش
         if (physicsWorld) {
@@ -323,12 +323,12 @@ async function init() {
       // محاسبه گرانش ساده و منطقی
       const gravityStrength = 30;
       
-      // گرانش بر اساس چرخش گوشی
+      // گرانش بر اساس چرخش گوشی (جهت درست)
       // Beta: جلو-عقب (X axis)
       // Gamma: چپ-راست (Z axis)
-      const gravityX = Math.sin(betaRad) * gravityStrength;
+      const gravityX = -Math.sin(betaRad) * gravityStrength; // معکوس
       const gravityY = -gravityStrength; // همیشه پایین
-      const gravityZ = Math.sin(gammaRad) * gravityStrength;
+      const gravityZ = -Math.sin(gammaRad) * gravityStrength; // معکوس
 
       // اعمال گرانش جدید به فیزیک
       physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
