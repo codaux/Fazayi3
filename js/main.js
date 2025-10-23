@@ -151,13 +151,78 @@ async function init() {
     const returnStartQuat = new THREE.Quaternion();
     const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff];
 
+    const GRAVITY_STRENGTH = 30;
+    const GRAVITY_SMOOTHING = 0.2;
+
+    const orientationEuler = new THREE.Euler();
+    const orientationQuaternion = new THREE.Quaternion();
+    const orientationCorrection = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+    const screenAlignmentQuaternion = new THREE.Quaternion();
+    const orientationZAxis = new THREE.Vector3(0, 0, 1);
+    const orientationInverse = new THREE.Quaternion();
+    const gravityDirection = new THREE.Vector3(0, -1, 0);
+    const gravityTarget = new THREE.Vector3(0, -GRAVITY_STRENGTH, 0);
+    const gravitySmoothed = new THREE.Vector3(0, -GRAVITY_STRENGTH, 0);
+    let screenOrientation = 0;
+
     // متغیرهای ژیروسکوپ
     let gyroEnabled = false;
     let lastGyroData = { alpha: 0, beta: 0, gamma: 0 };
-    let gyroSensitivity = 0.05; // حساسیت بالا و ثابت
     let isGyroSupported = false;
     let isMobile = false;
     let gravityArrow = null; // محور رنگی گرانش
+
+    function updateScreenOrientation() {
+      if (window.screen && typeof window.screen.orientation === 'object' && typeof window.screen.orientation.angle === 'number') {
+        screenOrientation = window.screen.orientation.angle;
+      } else if (typeof window.orientation === 'number') {
+        screenOrientation = window.orientation;
+      } else {
+        screenOrientation = 0;
+      }
+    }
+
+    function getOrientationQuaternion(alphaRad, betaRad, gammaRad, orientRad) {
+      orientationEuler.set(betaRad, alphaRad, -gammaRad, 'YXZ');
+      orientationQuaternion.setFromEuler(orientationEuler);
+      orientationQuaternion.multiply(orientationCorrection);
+      orientationQuaternion.multiply(screenAlignmentQuaternion.setFromAxisAngle(orientationZAxis, -orientRad));
+      return orientationQuaternion;
+    }
+
+    function applyGravityDirection(direction) {
+      if (!physicsWorld) return;
+
+      gravityTarget.copy(direction).multiplyScalar(GRAVITY_STRENGTH);
+      gravitySmoothed.lerp(gravityTarget, GRAVITY_SMOOTHING);
+
+      physicsWorld.setGravity(new Ammo.btVector3(gravitySmoothed.x, gravitySmoothed.y, gravitySmoothed.z));
+      updateGravityArrow(gravitySmoothed.x, gravitySmoothed.y, gravitySmoothed.z);
+    }
+
+    function applyOrientationToGravity(betaDeg, gammaDeg) {
+      if (!physicsWorld) return;
+
+      const orientRad = THREE.MathUtils.degToRad(screenOrientation || 0);
+      const betaRad = THREE.MathUtils.degToRad(-(betaDeg || 0));
+      const gammaRad = THREE.MathUtils.degToRad(gammaDeg || 0);
+
+      const orientation = getOrientationQuaternion(0, betaRad, gammaRad, orientRad);
+      orientationInverse.copy(orientation).invert();
+
+      gravityDirection.set(0, -1, 0).applyQuaternion(orientationInverse).normalize();
+
+      applyGravityDirection(gravityDirection);
+    }
+
+    updateScreenOrientation();
+    window.addEventListener('orientationchange', () => {
+      updateScreenOrientation();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
+      if (gyroEnabled) {
+        applyOrientationToGravity(lastGyroData.beta, lastGyroData.gamma);
+      }
+    });
 
     // تابع بررسی پشتیبانی از ژیروسکوپ (روش سنتی)
     function checkGyroSupport() {
@@ -237,7 +302,10 @@ async function init() {
       }
 
       gyroEnabled = true;
-      
+      updateScreenOrientation();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
+      lastGyroData = { alpha: 0, beta: 0, gamma: 0 };
+
       // استفاده از روش سنتی برای اضافه کردن event listener
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', handleGyroData, false);
@@ -263,43 +331,25 @@ async function init() {
     // تابع شبیه‌سازی ژیروسکوپ برای HTTP
     function simulateGyroscope() {
       gyroEnabled = true;
-      
+
       // شبیه‌سازی داده‌های ژیروسکوپ
       let beta = 0;
       let gamma = 0;
-      
+
       const simulateData = () => {
-        // شبیه‌سازی تغییرات کوچک
-        beta += (Math.random() - 0.5) * 2;
-        gamma += (Math.random() - 0.5) * 2;
-        
-        // محدود کردن مقادیر
-        beta = Math.max(-180, Math.min(180, beta));
-        gamma = Math.max(-90, Math.min(90, gamma));
-        
-        // محاسبه گرانش
-        const betaRad = (beta * Math.PI) / 180;
-        const gammaRad = (gamma * Math.PI) / 180;
-        
-        const gravityStrength = 30;
-        // ترکیب با زاویه دید دوربین: «پایین» را از دید دوربین بساز و با beta/gamma بچرخان
-        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-        const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
-        const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
-        const down = camUp.clone().negate()
-          .applyAxisAngle(right, betaRad)    // جلو/عقب حول راست دوربین
-          .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
-          .normalize();
+        beta += (Math.random() - 0.5) * 1.2;
+        gamma += (Math.random() - 0.5) * 1.2;
 
-        const gVec = down.multiplyScalar(gravityStrength);
+        beta = Math.max(-65, Math.min(65, beta));
+        gamma = Math.max(-50, Math.min(50, gamma));
 
-        // اعمال گرانش
-        if (physicsWorld) {
-          physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
-          updateGravityArrow(gVec.x, gVec.y, gVec.z);
-        }
+        lastGyroData.beta = beta;
+        lastGyroData.gamma = gamma;
+        lastGyroData.alpha = 0;
+
+        applyOrientationToGravity(beta, gamma);
       };
-      
+
       // اجرای شبیه‌سازی هر 100 میلی‌ثانیه
       setInterval(simulateData, 100);
     }
@@ -309,6 +359,7 @@ async function init() {
       gyroEnabled = false;
       window.removeEventListener('deviceorientation', handleGyroData, false);
       window.removeEventListener('devicemotion', handleMotionData, false);
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
     }
 
     // تابع پردازش داده‌های ژیروسکوپ (تغییر گرانش)
@@ -316,51 +367,40 @@ async function init() {
       if (!gyroEnabled || !physicsWorld) return;
 
       // دریافت داده‌های ژیروسکوپ
-      const alpha = event.alpha; // چرخش حول محور Z (0-360)
-      const beta = event.beta;   // چرخش حول محور X (-180 تا 180)
-      const gamma = event.gamma; // چرخش حول محور Y (-90 تا 90)
+      const alpha = event.alpha;
+      const beta = event.beta;
+      const gamma = event.gamma;
 
-      // بررسی وجود داده‌ها
-      if (alpha === null || beta === null || gamma === null) return;
+      if (beta === null || gamma === null) return;
 
-      // تبدیل درجه به رادیان
-      const betaRad = (beta * Math.PI) / 180;
-      const gammaRad = (gamma * Math.PI) / 180;
+      lastGyroData.alpha = alpha ?? lastGyroData.alpha;
+      lastGyroData.beta = beta;
+      lastGyroData.gamma = gamma;
 
-      // محاسبه گرانش نسبی به دوربین (حفظ اندازه ثابت)
-      const gravityStrength = 30;
-      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-      const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
-      const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
-      const down = camUp.clone().negate()
-        .applyAxisAngle(right, betaRad)     // جلو/عقب حول راست دوربین
-        .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
-        .normalize();
-
-      const gVec = down.multiplyScalar(gravityStrength);
-
-      // اعمال گرانش جدید به فیزیک و به‌روزرسانی محور
-      physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
-      updateGravityArrow(gVec.x, gVec.y, gVec.z);
+      applyOrientationToGravity(beta, gamma);
     }
 
     // تابع پردازش داده‌های DeviceMotion (fallback - تغییر گرانش)
     function handleMotionData(event) {
       if (!gyroEnabled || !physicsWorld) return;
 
-      // استفاده از rotationRate برای DeviceMotionEvent
-      const rotationRate = event.rotationRate;
-      if (!rotationRate) return;
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
 
-      // محاسبه گرانش ساده
-      const gravityStrength = 30;
-      const gravityX = rotationRate.beta ? rotationRate.beta * 2 : 0;
-      const gravityY = -gravityStrength;
-      const gravityZ = rotationRate.gamma ? rotationRate.gamma * 2 : 0;
+      const ax = acc.x ?? 0;
+      const ay = acc.y ?? 0;
+      const az = acc.z ?? 0;
 
-      // اعمال گرانش جدید به فیزیک
-      physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
-      updateGravityArrow(gravityX, gravityY, gravityZ);
+      const beta = THREE.MathUtils.radToDeg(Math.atan2(ax, Math.hypot(ay, az)));
+      const gamma = THREE.MathUtils.radToDeg(Math.atan2(ay, az));
+
+      if (!isFinite(beta) || !isFinite(gamma)) return;
+
+      lastGyroData.alpha = 0;
+      lastGyroData.beta = beta;
+      lastGyroData.gamma = gamma;
+
+      applyOrientationToGravity(beta, gamma);
     }
 
     // تنظیمات فیزیک
@@ -377,7 +417,7 @@ async function init() {
       );
       // گرانش اولیه بر اساس نوع دستگاه
       if (isMobile) {
-        physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0)); // گرانش پایین برای موبایل
+        physicsWorld.setGravity(new Ammo.btVector3(0, -GRAVITY_STRENGTH, 0)); // گرانش پایین برای موبایل
       } else {
         physicsWorld.setGravity(new Ammo.btVector3(0, 0, 0)); // گرانش صفر برای دسکتاپ
       }
@@ -723,7 +763,10 @@ async function init() {
       }
 
       console.log("پرتاب توپ‌ها...");
-      physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0));
+      physicsWorld.setGravity(new Ammo.btVector3(0, -GRAVITY_STRENGTH, 0));
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
+      gravityTarget.set(0, -GRAVITY_STRENGTH, 0);
+      updateGravityArrow(0, -GRAVITY_STRENGTH, 0);
 
       ballBodies.forEach((body) => {
         body.activate(true);
@@ -837,8 +880,7 @@ async function init() {
       document.body.appendChild(gyroButton);
     }
 
-    // حذف کنترل حساسیت - حساسیت ثابت و بالا
-    // gyroSensitivity = 0.05 (ثابت)
+    // حذف کنترل حساسیت - از فیلتر نرم‌کننده ثابت استفاده می‌شود
 
     // نمایش راهنمای ژیروسکوپ (فقط در موبایل)
     function showGyroInstructions() {
