@@ -278,7 +278,9 @@ async function init() {
         gamma = Math.max(-90, Math.min(90, gamma));
         
         // محاسبه گرانش
-        const betaRad = (beta * Math.PI) / 180;
+        // beta (tilt forward/backward) needs to be inverted to match the
+        // physical expectation of the container's movement.
+        const betaRad = (-beta * Math.PI) / 180;
         const gammaRad = (gamma * Math.PI) / 180;
         
         const gravityStrength = 30;
@@ -324,7 +326,9 @@ async function init() {
       if (alpha === null || beta === null || gamma === null) return;
 
       // تبدیل درجه به رادیان
-      const betaRad = (beta * Math.PI) / 180;
+      // beta (tilt forward/backward) needs to be inverted so that tilting the
+      // device forward moves the gravity vector forward in the scene.
+      const betaRad = (-beta * Math.PI) / 180;
       const gammaRad = (gamma * Math.PI) / 180;
 
       // محاسبه گرانش نسبی به دوربین (حفظ اندازه ثابت)
@@ -354,7 +358,7 @@ async function init() {
 
       // محاسبه گرانش ساده
       const gravityStrength = 30;
-      const gravityX = rotationRate.beta ? rotationRate.beta * 2 : 0;
+      const gravityX = rotationRate.beta ? -rotationRate.beta * 2 : 0;
       const gravityY = -gravityStrength;
       const gravityZ = rotationRate.gamma ? rotationRate.gamma * 2 : 0;
 
