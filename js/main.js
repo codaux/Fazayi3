@@ -337,17 +337,37 @@ async function init() {
       let gamma = 0;
 
       const simulateData = () => {
-        beta += (Math.random() - 0.5) * 1.2;
-        gamma += (Math.random() - 0.5) * 1.2;
+        // شبیه‌سازی تغییرات کوچک
+        beta += (Math.random() - 0.5) * 2;
+        gamma += (Math.random() - 0.5) * 2;
+        
+        // محدود کردن مقادیر
+        beta = Math.max(-180, Math.min(180, beta));
+        gamma = Math.max(-90, Math.min(90, gamma));
+        
+        // محاسبه گرانش
+        // beta (tilt forward/backward) needs to be inverted to match the
+        // physical expectation of the container's movement.
+        const betaRad = (-beta * Math.PI) / 180;
+        const gammaRad = (gamma * Math.PI) / 180;
+        
+        const gravityStrength = 30;
+        // ترکیب با زاویه دید دوربین: «پایین» را از دید دوربین بساز و با beta/gamma بچرخان
+        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+        const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+        const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
+        const down = camUp.clone().negate()
+          .applyAxisAngle(right, betaRad)    // جلو/عقب حول راست دوربین
+          .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
+          .normalize();
 
-        beta = Math.max(-65, Math.min(65, beta));
-        gamma = Math.max(-50, Math.min(50, gamma));
+        const gVec = down.multiplyScalar(gravityStrength);
 
-        lastGyroData.beta = beta;
-        lastGyroData.gamma = gamma;
-        lastGyroData.alpha = 0;
-
-        applyOrientationToGravity(beta, gamma);
+        // اعمال گرانش
+        if (physicsWorld) {
+          physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+          updateGravityArrow(gVec.x, gVec.y, gVec.z);
+        }
       };
 
       // اجرای شبیه‌سازی هر 100 میلی‌ثانیه
@@ -367,17 +387,34 @@ async function init() {
       if (!gyroEnabled || !physicsWorld) return;
 
       // دریافت داده‌های ژیروسکوپ
-      const alpha = event.alpha;
-      const beta = event.beta;
-      const gamma = event.gamma;
+      const alpha = event.alpha; // چرخش حول محور Z (0-360)
+      const beta = event.beta;   // چرخش حول محور X (-180 تا 180)
+      const gamma = event.gamma; // چرخش حول محور Y (-90 تا 90)
 
-      if (beta === null || gamma === null) return;
+      // بررسی وجود داده‌ها
+      if (alpha === null || beta === null || gamma === null) return;
 
-      lastGyroData.alpha = alpha ?? lastGyroData.alpha;
-      lastGyroData.beta = beta;
-      lastGyroData.gamma = gamma;
+      // تبدیل درجه به رادیان
+      // beta (tilt forward/backward) needs to be inverted so that tilting the
+      // device forward moves the gravity vector forward in the scene.
+      const betaRad = (-beta * Math.PI) / 180;
+      const gammaRad = (gamma * Math.PI) / 180;
 
-      applyOrientationToGravity(beta, gamma);
+      // محاسبه گرانش نسبی به دوربین (حفظ اندازه ثابت)
+      const gravityStrength = 30;
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+      const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+      const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
+      const down = camUp.clone().negate()
+        .applyAxisAngle(right, betaRad)     // جلو/عقب حول راست دوربین
+        .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
+        .normalize();
+
+      const gVec = down.multiplyScalar(gravityStrength);
+
+      // اعمال گرانش جدید به فیزیک و به‌روزرسانی محور
+      physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+      updateGravityArrow(gVec.x, gVec.y, gVec.z);
     }
 
     // تابع پردازش داده‌های DeviceMotion (fallback - تغییر گرانش)
@@ -396,9 +433,11 @@ async function init() {
 
       if (!isFinite(beta) || !isFinite(gamma)) return;
 
-      lastGyroData.alpha = 0;
-      lastGyroData.beta = beta;
-      lastGyroData.gamma = gamma;
+      // محاسبه گرانش ساده
+      const gravityStrength = 30;
+      const gravityX = rotationRate.beta ? -rotationRate.beta * 2 : 0;
+      const gravityY = -gravityStrength;
+      const gravityZ = rotationRate.gamma ? rotationRate.gamma * 2 : 0;
 
       applyOrientationToGravity(beta, gamma);
     }
