@@ -199,6 +199,18 @@ async function init() {
     function resetOrientationCalibration() {
       hasOrientationCalibration = false;
       orientationOffset.identity();
+    }
+
+    function ensureOrientationCalibration(currentQuaternion) {
+      if (!hasOrientationCalibration) {
+        orientationOffset.copy(currentQuaternion).invert();
+        hasOrientationCalibration = true;
+      }
+    }
+
+    function resetOrientationCalibration() {
+      hasOrientationCalibration = false;
+      orientationOffset.identity();
       gravityPending.set(0, -1, 0);
       gravityTarget.set(0, -GRAVITY_STRENGTH, 0);
       if (physicsWorld && gravityControlEnabled) {
@@ -242,6 +254,7 @@ async function init() {
       const orientRad = THREE.MathUtils.degToRad(screenOrientation || 0);
       const alphaRad = THREE.MathUtils.degToRad(alphaDeg || 0);
       const betaRad = THREE.MathUtils.degToRad(-(betaDeg || 0));
+      const betaRad = THREE.MathUtils.degToRad(betaDeg || 0);
       const gammaRad = THREE.MathUtils.degToRad(gammaDeg || 0);
 
       if (!Number.isFinite(alphaRad) || !Number.isFinite(betaRad) || !Number.isFinite(gammaRad) || !Number.isFinite(orientRad)) {
@@ -254,6 +267,11 @@ async function init() {
 
       relativeOrientation.copy(orientation).multiply(orientationOffset);
       relativeOrientation.normalize();
+
+
+      ensureOrientationCalibration(orientation);
+
+      relativeOrientation.copy(orientationOffset).multiply(orientation);
 
       gravityDirection.copy(gravityBase).applyQuaternion(relativeOrientation).normalize();
 
@@ -280,6 +298,7 @@ async function init() {
     window.addEventListener('orientationchange', () => {
       updateScreenOrientation();
       resetOrientationCalibration();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       if (gyroEnabled) {
         applyOrientationToGravity(
           lastGyroData.beta,
@@ -369,6 +388,7 @@ async function init() {
       gyroEnabled = true;
       updateScreenOrientation();
       resetOrientationCalibration();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       lastGyroData = { alpha: 0, beta: 0, gamma: 0 };
 
       // استفاده از روش سنتی برای اضافه کردن event listener
@@ -429,6 +449,7 @@ async function init() {
       gyroEnabled = false;
       window.removeEventListener('deviceorientation', handleGyroData, false);
       window.removeEventListener('devicemotion', handleMotionData, false);
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       resetOrientationCalibration();
     }
 
@@ -527,10 +548,15 @@ async function init() {
       );
       const body = new Ammo.btRigidBody(rbInfo);
 
-      body.setRestitution(0.5);
-      body.setFriction(0.8);
-      body.setRollingFriction(0.2);
-      body.setDamping(0.3, 0.3);
+      body.setRestitution(0.45);
+      body.setFriction(0.18);
+      body.setRollingFriction(0.03);
+      if (body.setSpinningFriction) {
+        body.setSpinningFriction(0.02);
+      }
+      body.setDamping(0.05, 0.1);
+      body.setCcdMotionThreshold(radius * 0.25);
+      body.setCcdSweptSphereRadius(radius * 0.2);
 
       // غیرفعال کردن حرکت اولیه
       body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
