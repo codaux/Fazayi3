@@ -199,6 +199,18 @@ async function init() {
     function resetOrientationCalibration() {
       hasOrientationCalibration = false;
       orientationOffset.identity();
+    }
+
+    function ensureOrientationCalibration(currentQuaternion) {
+      if (!hasOrientationCalibration) {
+        orientationOffset.copy(currentQuaternion).invert();
+        hasOrientationCalibration = true;
+      }
+    }
+
+    function resetOrientationCalibration() {
+      hasOrientationCalibration = false;
+      orientationOffset.identity();
       gravityPending.set(0, -1, 0);
       gravityTarget.set(0, -GRAVITY_STRENGTH, 0);
       if (physicsWorld && gravityControlEnabled) {
@@ -242,6 +254,7 @@ async function init() {
       const orientRad = THREE.MathUtils.degToRad(screenOrientation || 0);
       const alphaRad = THREE.MathUtils.degToRad(alphaDeg || 0);
       const betaRad = THREE.MathUtils.degToRad(-(betaDeg || 0));
+      const betaRad = THREE.MathUtils.degToRad(betaDeg || 0);
       const gammaRad = THREE.MathUtils.degToRad(gammaDeg || 0);
 
       if (!Number.isFinite(alphaRad) || !Number.isFinite(betaRad) || !Number.isFinite(gammaRad) || !Number.isFinite(orientRad)) {
@@ -279,6 +292,7 @@ async function init() {
     window.addEventListener('orientationchange', () => {
       updateScreenOrientation();
       resetOrientationCalibration();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       if (gyroEnabled) {
         applyOrientationToGravity(
           lastGyroData.beta,
@@ -368,6 +382,7 @@ async function init() {
       gyroEnabled = true;
       updateScreenOrientation();
       resetOrientationCalibration();
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       lastGyroData = { alpha: 0, beta: 0, gamma: 0 };
 
       // استفاده از روش سنتی برای اضافه کردن event listener
@@ -428,6 +443,7 @@ async function init() {
       gyroEnabled = false;
       window.removeEventListener('deviceorientation', handleGyroData, false);
       window.removeEventListener('devicemotion', handleMotionData, false);
+      gravitySmoothed.set(0, -GRAVITY_STRENGTH, 0);
       resetOrientationCalibration();
     }
 
