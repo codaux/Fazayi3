@@ -8,9 +8,9 @@ async function init() {
 
     // اطمینان از اینکه Ammo.js به درستی مقداردهی شده است
     if (typeof Ammo === "function") {
-      await new Promise((resolve, reject) => {
-        Ammo().then(resolve).catch(reject);
-      });
+      Ammo = await Ammo();
+    } else if (Ammo && typeof Ammo.then === "function") {
+      Ammo = await Ammo;
     }
 
     console.log("Ammo.js با موفقیت بارگذاری شد");
