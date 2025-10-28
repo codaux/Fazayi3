@@ -265,12 +265,6 @@ async function init() {
 
       ensureOrientationCalibration(orientation);
 
-      relativeOrientation.copy(orientation).multiply(orientationOffset);
-      relativeOrientation.normalize();
-
-
-      ensureOrientationCalibration(orientation);
-
       relativeOrientation.copy(orientationOffset).multiply(orientation);
 
       gravityDirection.copy(gravityBase).applyQuaternion(relativeOrientation).normalize();
@@ -561,7 +555,6 @@ async function init() {
       // غیرفعال کردن حرکت اولیه
       body.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
       body.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
-      body.setActivationState(4);
 
       physicsWorld.addRigidBody(body);
       balls.push(ball);
