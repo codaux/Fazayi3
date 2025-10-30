@@ -158,6 +158,9 @@ async function init() {
     let isGyroSupported = false;
     let isMobile = false;
     let gravityArrow = null; // محور رنگی گرانش
+    let gyroGravityActive = false; // اعمال گرانش وابسته به ژیروسکوپ پس از پرتاب
+    const lastGravityVec = new THREE.Vector3(0, 0, 0); // آخرین بردار گرانش محاسبه‌شده
+    const BASE_GRAVITY = 50; // شدت گرانش یکسان در دسکتاپ و موبایل
 
     // تابع بررسی پشتیبانی از ژیروسکوپ (روش سنتی)
     function checkGyroSupport() {
@@ -283,22 +286,24 @@ async function init() {
         const betaRad = (-beta * Math.PI) / 180;
         const gammaRad = (gamma * Math.PI) / 180;
         
-        const gravityStrength = 30;
-        // ترکیب با زاویه دید دوربین: «پایین» را از دید دوربین بساز و با beta/gamma بچرخان
+        const gravityStrength = BASE_GRAVITY; // شدت گرانش یکنواخت
+        // از «پایینِ جهانی» شروع کن تا شیب بی‌طرف باشد، سپس حول محورها بچرخان
         const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-        const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
         const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
-        const down = camUp.clone().negate()
-          .applyAxisAngle(right, betaRad)    // جلو/عقب حول راست دوربین
+        const down = new THREE.Vector3(0, -1, 0)
+          .applyAxisAngle(right, betaRad)     // جلو/عقب حول راست دوربین
           .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
           .normalize();
 
         const gVec = down.multiplyScalar(gravityStrength);
 
-        // اعمال گرانش
-        if (physicsWorld) {
+        // به‌روزرسانی آخرین بردار و فلش
+        lastGravityVec.copy(gVec);
+        updateGravityArrow(gVec.x, gVec.y, gVec.z);
+
+        // اعمال گرانش فقط بعد از پرتاب
+        if (physicsWorld && gyroGravityActive) {
           physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
-          updateGravityArrow(gVec.x, gVec.y, gVec.z);
         }
       };
       
@@ -332,20 +337,22 @@ async function init() {
       const gammaRad = (gamma * Math.PI) / 180;
 
       // محاسبه گرانش نسبی به دوربین (حفظ اندازه ثابت)
-      const gravityStrength = 30;
+      const gravityStrength = BASE_GRAVITY; // شدت گرانش یکنواخت
       const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
-      const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
       const forward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate();
-      const down = camUp.clone().negate()
-        .applyAxisAngle(right, betaRad)     // جلو/عقب حول راست دوربین
-        .applyAxisAngle(forward, -gammaRad) // چپ/راست حول جلو دوربین
+      const down = new THREE.Vector3(0, -1, 0)
+        .applyAxisAngle(right, betaRad)      // جلو/عقب حول راست دوربین
+        .applyAxisAngle(forward, -gammaRad)  // چپ/راست حول جلو دوربین
         .normalize();
 
       const gVec = down.multiplyScalar(gravityStrength);
-
-      // اعمال گرانش جدید به فیزیک و به‌روزرسانی محور
-      physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+      // ذخیره آخرین مقدار و به‌روزرسانی محور
+      lastGravityVec.copy(gVec);
       updateGravityArrow(gVec.x, gVec.y, gVec.z);
+      // اعمال گرانش فقط پس از پرتاب
+      if (gyroGravityActive) {
+        physicsWorld.setGravity(new Ammo.btVector3(gVec.x, gVec.y, gVec.z));
+      }
     }
 
     // تابع پردازش داده‌های DeviceMotion (fallback - تغییر گرانش)
@@ -357,14 +364,18 @@ async function init() {
       if (!rotationRate) return;
 
       // محاسبه گرانش ساده
-      const gravityStrength = 30;
+      const gravityStrength = BASE_GRAVITY; // شدت گرانش یکنواخت
       const gravityX = rotationRate.beta ? -rotationRate.beta * 2 : 0;
       const gravityY = -gravityStrength;
       const gravityZ = rotationRate.gamma ? rotationRate.gamma * 2 : 0;
 
-      // اعمال گرانش جدید به فیزیک
-      physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
+      // به‌روزرسانی آخرین بردار و فلش
+      lastGravityVec.set(gravityX, gravityY, gravityZ);
       updateGravityArrow(gravityX, gravityY, gravityZ);
+      // اعمال گرانش فقط پس از پرتاب
+      if (gyroGravityActive) {
+        physicsWorld.setGravity(new Ammo.btVector3(gravityX, gravityY, gravityZ));
+      }
     }
 
     // تنظیمات فیزیک
@@ -379,12 +390,8 @@ async function init() {
         solver,
         collisionConfiguration
       );
-      // گرانش اولیه بر اساس نوع دستگاه
-      if (isMobile) {
-        physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0)); // گرانش پایین برای موبایل
-      } else {
-        physicsWorld.setGravity(new Ammo.btVector3(0, 0, 0)); // گرانش صفر برای دسکتاپ
-      }
+      // گرانش اولیه: صفر برای همه دستگاه‌ها (توپ‌ها معلق بمانند)
+      physicsWorld.setGravity(new Ammo.btVector3(0, 0, 0));
       transformAux1 = new Ammo.btTransform();
     }
 
@@ -665,13 +672,9 @@ async function init() {
         // ایجاد محور گرانش
         createGravityArrow();
 
-        // اضافه کردن دکمه ژیروسکوپ (فقط در موبایل)
-        addGyroButton();
-
         // بررسی پشتیبانی از ژیروسکوپ و فعال‌سازی خودکار در موبایل
         if (checkGyroSupport()) {
           if (isMobile) {
-            showGyroInstructions();
             // فعال‌سازی خودکار ژیروسکوپ در موبایل
             setTimeout(() => {
               autoEnableGyroscope();
@@ -727,7 +730,14 @@ async function init() {
       }
 
       console.log("پرتاب توپ‌ها...");
-      physicsWorld.setGravity(new Ammo.btVector3(0, -30, 0));
+      // فعال‌کردن اعمال گرانش ژیروسکوپی پس از پرتاب
+      gyroGravityActive = true;
+      // اگر داده ژیروسکوپ داریم همان لحظه گرانش را اعمال کن، وگرنه پیش‌فرض رو به پایین
+      if (lastGravityVec.lengthSq() > 0) {
+        physicsWorld.setGravity(new Ammo.btVector3(lastGravityVec.x, lastGravityVec.y, lastGravityVec.z));
+      } else {
+        physicsWorld.setGravity(new Ammo.btVector3(0, -BASE_GRAVITY, 0));
+      }
 
       ballBodies.forEach((body) => {
         body.activate(true);
@@ -787,109 +797,12 @@ async function init() {
       console.error("دکمه پرتاب پیدا نشد!");
     }
 
-    // اضافه کردن دکمه ژیروسکوپ به HTML (فقط در موبایل)
-    function addGyroButton() {
-      // فقط در موبایل دکمه نمایش داده شود
-      if (!isMobile) {
-        return;
-      }
-
-      const gyroButton = document.createElement('button');
-      gyroButton.id = 'gyroButton';
-      gyroButton.textContent = 'فعال‌سازی ژیروسکوپ';
-      gyroButton.style.cssText = `
-        position: fixed;
-        top: 60px;
-        right: 10px;
-        z-index: 1002;
-        padding: 10px 15px;
-        background: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-family: 'Vazirmatn', sans-serif;
-        font-size: 12px;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-tap-highlight-color: transparent;
-        min-height: 44px;
-      `;
-      
-      const handleGyroButtonClick = async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        if (!gyroEnabled) {
-          const success = await enableGyroscope();
-          if (success) {
-            gyroButton.textContent = 'غیرفعال‌سازی ژیروسکوپ';
-            gyroButton.style.background = '#f44336';
-          }
-        } else {
-          disableGyroscope();
-          gyroButton.textContent = 'فعال‌سازی ژیروسکوپ';
-          gyroButton.style.background = '#4CAF50';
-        }
-      };
-
-      gyroButton.addEventListener('click', handleGyroButtonClick);
-      gyroButton.addEventListener('touchstart', handleGyroButtonClick, { passive: false });
-      
-      document.body.appendChild(gyroButton);
-    }
+    // دکمه ژیروسکوپ حذف شد؛ ژیروسکوپ به‌صورت خودکار (در حد پشتیبانی) فعال می‌شود.
 
     // حذف کنترل حساسیت - حساسیت ثابت و بالا
     // gyroSensitivity = 0.05 (ثابت)
 
-    // نمایش راهنمای ژیروسکوپ (فقط در موبایل)
-    function showGyroInstructions() {
-      if (!isMobile) return;
-      
-      const instructions = document.createElement('div');
-      instructions.id = 'gyroInstructions';
-      instructions.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        right: 20px;
-        background: rgba(0,0,0,0.8);
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        font-family: 'Vazirmatn', sans-serif;
-        font-size: 12px;
-        text-align: center;
-        z-index: 1000;
-        display: none;
-      `;
-      instructions.innerHTML = `
-        <div style="margin-bottom: 10px; font-weight: bold;">🎮 راهنمای ژیروسکوپ</div>
-        <div>ژیروسکوپ به صورت خودکار فعال است!</div>
-        <div>گوشی را به چپ و راست بچرخانید</div>
-        <div>گرانش تغییر می‌کند و توپ‌ها حرکت می‌کنند</div>
-        <div style="margin-top: 10px; font-size: 10px; opacity: 0.8;">
-          💡 چرخش KAF با لمس غیرفعال است
-        </div>
-      `;
-      
-      document.body.appendChild(instructions);
-      
-      // نمایش راهنما برای 3 ثانیه
-      setTimeout(() => {
-        instructions.style.display = 'block';
-        setTimeout(() => {
-          instructions.style.opacity = '0';
-          setTimeout(() => {
-            if (instructions.parentNode) {
-              instructions.parentNode.removeChild(instructions);
-            }
-          }, 500);
-        }, 3000);
-      }, 1000);
-    }
+    // راهنمای ژیروسکوپ حذف شد
 
     function animate() {
       requestAnimationFrame(animate);
